@@ -24,6 +24,16 @@ def _get_plugin(gl=False):
     if _cached_plugin.get(gl, None) is not None:
         return _cached_plugin[gl]
 
+    plugin_name = 'nvdiffrast_plugin' + ('_gl' if gl else '')
+
+    # If there's a prebuilt module available, skip cpp_extension
+    # This means no need for ninja and nvcc at inference time
+    try:
+        _cached_plugin[gl] = importlib.import_module(f'nvdiffrast.{plugin_name}')
+        return _cached_plugin[gl]
+    except ModuleNotFoundError:
+        pass
+
     # Make sure we can find the necessary compiler and libary binaries.
     if os.name == 'nt':
         lib_dir = os.path.dirname(__file__) + r"\..\lib"
@@ -91,7 +101,6 @@ def _get_plugin(gl=False):
         logging.getLogger('nvdiffrast').warning("Warning: libGLEW is being loaded via LD_PRELOAD, and will probably conflict with the OpenGL plugin")
 
     # Try to detect if a stray lock file is left in cache directory and show a warning. This sometimes happens on Windows if the build is interrupted at just the right moment.
-    plugin_name = 'nvdiffrast_plugin' + ('_gl' if gl else '')
     try:
         lock_fn = os.path.join(torch.utils.cpp_extension._get_build_directory(plugin_name, False), 'lock')
         if os.path.exists(lock_fn):
